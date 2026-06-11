@@ -21,7 +21,7 @@ ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
 -- Hauptfenster
 local MainFrame = Instance.new("Frame")
 MainFrame.Name = "MainFrame"
-MainFrame.Size = UDim2.new(0, 320, 0, 550) -- Höhe leicht erhöht für das Suchfeld
+MainFrame.Size = UDim2.new(0, 320, 0, 550)
 MainFrame.Position = UDim2.new(0.5, -160, 0.5, -275)
 MainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
 MainFrame.BorderSizePixel = 0
@@ -269,10 +269,10 @@ local GetMasterToggle   = createToggle("MasterToggle", "Aim Aktivieren", true)
 local GetEspToggle      = createToggle("EspToggle", "ESP Boxen Aktivieren", true)
 local GetEspScale       = createSlider("EspScale", "ESP Boxen-Größe (%)", 50, 200, 50)
 local GetFovDetection   = createSlider("FOV", "FOV Radius", 30, 300, 120)
-local GetSmoothness     = createSlider("Smoothness", "Smoothness (Höher = Langsamer)", 1, 30, 5)
+local GetSmoothness     = createSlider("Smoothness", "Smoothness (Höher = Langsamer)", 1, 30, 2) -- Standard auf 2 gesetzt für Speed
 local GetTargetLock     = createToggle("TargetLock", "Target Lock-On", true)
 local GetWallCheck      = createToggle("WallCheck", "Wall Check (Sichtprüfung)", true)
-local GetAimKeybind      = createKeybind("AimKey", "Aim Taste halten", Enum.KeyCode.Q)
+local GetAimKeybind     = createKeybind("AimKey", "Aim Taste halten", Enum.KeyCode.Q)
 local GetMenuKeybind    = createKeybind("MenuKey", "Menü Taste", Enum.KeyCode.RightShift)
 
 -- SPIELER AUSSCHLUSS-LISTE UI ELEMENT
@@ -285,7 +285,7 @@ ExcludeHeader.Font = Enum.Font.GothamBold
 ExcludeHeader.TextSize = 11
 ExcludeHeader.Parent = Container
 
--- NEU: Suchfeld für Spieler
+-- Suchfeld für Spieler
 local SearchBox = Instance.new("TextBox")
 SearchBox.Name = "SearchBox"
 SearchBox.Size = UDim2.new(1, 0, 0, 28)
@@ -337,7 +337,6 @@ local function updateExcludeList()
             local pNameLower = string.lower(p.Name)
             local pDisplayNameLower = string.lower(p.DisplayName)
             
-            -- Filtert nach Suchbegriff (wenn leer, wird alles angezeigt)
             if string.find(pNameLower, searchFilter) or string.find(pDisplayNameLower, searchFilter) then
                 local pBtn = Instance.new("TextButton")
                 pBtn.Name = p.Name
@@ -375,14 +374,11 @@ local function updateExcludeList()
     Container.CanvasSize = UDim2.new(0, 0, 0, UIListLayout.AbsoluteContentSize.Y + 15)
 end
 
--- Aktualisiert die Liste live, wenn man ins Suchfeld tippt
 SearchBox:GetPropertyChangedSignal("Text"):Connect(updateExcludeList)
-
 Players.PlayerAdded:Connect(function(p) task.wait(0.5) updateExcludeList() end)
 Players.PlayerRemoving:Connect(function(p) ExcludedPlayers[p.Name] = nil updateExcludeList() end)
 updateExcludeList()
 
--- Canvas-Größe anpassen
 Container.CanvasSize = UDim2.new(0, 0, 0, UIListLayout.AbsoluteContentSize.Y + 15)
 
 -- MENÜ SCHLIESSEN / ÖFFNEN
@@ -394,7 +390,7 @@ UserInputService.InputBegan:Connect(function(input, processed)
     end
 end)
 
--- Dragging (Menü verschieben)
+-- Dragging
 local dragging, dragStart, startPos
 TitleBar.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 then
@@ -411,22 +407,18 @@ UserInputService.InputEnded:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end
 end)
 
-
 -- ====================================================================
--- ESP LOGIK ENGINE (Quad-Boxen mit Größen-Slider)
+-- ESP LOGIK ENGINE
 -- ====================================================================
-
 local esps = {}
 
 local function createEsp(player)
     if esps[player] then return end
-
     local box = Drawing.new("Square")
     box.Color = Color3.fromRGB(255, 0, 85)
     box.Thickness = 1.5
     box.Filled = false
     box.Visible = false
-
     esps[player] = box
 end
 
@@ -444,13 +436,11 @@ for _, p in ipairs(Players:GetPlayers()) do
 end
 
 -- ====================================================================
--- AIMBOT LOGIK ENGINE
+-- AIMBOT LOGIK ENGINE (FIXED SMOOTHNESS)
 -- ====================================================================
-
 local CurrentTarget = nil
 local IsAiming = false
 
--- Wallcheck Funktion
 local function isVisible(targetPart)
     if not GetWallCheck() then return true end
     local character = LocalPlayer.Character
@@ -468,7 +458,6 @@ local function isVisible(targetPart)
     return raycastResult == nil
 end
 
--- Findet das beste Ziel am nächsten zum Mauszeiger
 local function getClosestPlayerToMouse()
     local closestPlayer = nil
     local shortestDistance = GetFovDetection()
@@ -497,7 +486,6 @@ local function getClosestPlayerToMouse()
     return closestPlayer
 end
 
--- Keybind Überwachung für Aimlock
 UserInputService.InputBegan:Connect(function(input, processed)
     if not processed and input.KeyCode == GetAimKeybind() then
         IsAiming = true
@@ -513,15 +501,13 @@ UserInputService.InputEnded:Connect(function(input)
     end
 end)
 
--- Main Loop (Frame-Update für Aimbot & ESP)
+-- Main Loop
 RunService.RenderStepped:Connect(function()
-    -- FOV Update
     local mousePos = UserInputService:GetMouseLocation()
     FOVCircle.Position = mousePos
     FOVCircle.Radius = GetFovDetection()
     FOVCircle.Visible = GetMasterToggle() and MenuVisible
 
-    -- ESP Rendering Loop
     for player, box in pairs(esps) do
         local char = player.Character
         local root = char and char:FindFirstChild("HumanoidRootPart")
@@ -552,7 +538,6 @@ RunService.RenderStepped:Connect(function()
         return 
     end
 
-    -- Ziel-Validierung
     if CurrentTarget then
         local char = CurrentTarget.Character
         local hum = char and char:FindFirstChild("Humanoid")
@@ -562,7 +547,6 @@ RunService.RenderStepped:Connect(function()
         end
     end
 
-    -- Aimbot Ausführung
     if IsAiming then
         if GetTargetLock() then
             if not CurrentTarget then
@@ -576,8 +560,16 @@ RunService.RenderStepped:Connect(function()
             local head = CurrentTarget.Character:FindFirstChild("Head")
             if head then
                 local targetCFrame = CFrame.new(Camera.CFrame.Position, head.Position)
-                local smoothAmount = math.max(1, GetSmoothness())
-                Camera.CFrame = Camera.CFrame:Lerp(targetCFrame, 1 / smoothAmount)
+                local smoothAmount = GetSmoothness()
+                
+                -- NEU: Überarbeitete Smoothness-Berechnung für drastisch erhöhte Geschwindigkeit
+                if smoothAmount <= 1 then
+                    Camera.CFrame = targetCFrame -- Sofortiges Einrasten ohne Verzögerung
+                else
+                    -- Die Trägheit wurde stark verringert (Faktor 0.15), damit höhere Werte benutzbar bleiben
+                    local alpha = 1 / (smoothAmount * 0.15)
+                    Camera.CFrame = Camera.CFrame:Lerp(targetCFrame, math.clamp(alpha, 0, 1))
+                end
             end
         end
     else
