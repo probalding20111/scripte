@@ -21,8 +21,8 @@ ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
 -- Hauptfenster
 local MainFrame = Instance.new("Frame")
 MainFrame.Name = "MainFrame"
-MainFrame.Size = UDim2.new(0, 320, 0, 550)
-MainFrame.Position = UDim2.new(0.5, -160, 0.5, -275)
+MainFrame.Size = UDim2.new(0, 320, 0, 500) -- Höhe leicht angepasst, da ein Element fehlt
+MainFrame.Position = UDim2.new(0.5, -160, 0.5, -250)
 MainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
 MainFrame.BorderSizePixel = 0
 MainFrame.ClipsDescendants = true
@@ -269,7 +269,6 @@ local GetMasterToggle   = createToggle("MasterToggle", "Aim Aktivieren", true)
 local GetEspToggle      = createToggle("EspToggle", "ESP Boxen Aktivieren", true)
 local GetEspScale       = createSlider("EspScale", "ESP Boxen-Größe (%)", 50, 200, 50)
 local GetFovDetection   = createSlider("FOV", "FOV Radius", 30, 300, 120)
-local GetSmoothness     = createSlider("Smoothness", "Smoothness (Höher = Langsamer)", 1, 30, 2) -- Standard auf 2 gesetzt für Speed
 local GetTargetLock     = createToggle("TargetLock", "Target Lock-On", true)
 local GetWallCheck      = createToggle("WallCheck", "Wall Check (Sichtprüfung)", true)
 local GetAimKeybind     = createKeybind("AimKey", "Aim Taste halten", Enum.KeyCode.Q)
@@ -436,7 +435,7 @@ for _, p in ipairs(Players:GetPlayers()) do
 end
 
 -- ====================================================================
--- AIMBOT LOGIK ENGINE (FIXED SMOOTHNESS)
+-- AIMBOT LOGIK ENGINE
 -- ====================================================================
 local CurrentTarget = nil
 local IsAiming = false
@@ -559,17 +558,8 @@ RunService.RenderStepped:Connect(function()
         if CurrentTarget and CurrentTarget.Character then
             local head = CurrentTarget.Character:FindFirstChild("Head")
             if head then
-                local targetCFrame = CFrame.new(Camera.CFrame.Position, head.Position)
-                local smoothAmount = GetSmoothness()
-                
-                -- NEU: Überarbeitete Smoothness-Berechnung für drastisch erhöhte Geschwindigkeit
-                if smoothAmount <= 1 then
-                    Camera.CFrame = targetCFrame -- Sofortiges Einrasten ohne Verzögerung
-                else
-                    -- Die Trägheit wurde stark verringert (Faktor 0.15), damit höhere Werte benutzbar bleiben
-                    local alpha = 1 / (smoothAmount * 0.15)
-                    Camera.CFrame = Camera.CFrame:Lerp(targetCFrame, math.clamp(alpha, 0, 1))
-                end
+                -- Direktes Einrasten (Maximale Geschwindigkeit)
+                Camera.CFrame = CFrame.new(Camera.CFrame.Position, head.Position)
             end
         end
     else
