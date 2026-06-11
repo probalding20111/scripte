@@ -1,0 +1,563 @@
+-- SERVICES
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
+
+local LocalPlayer = Players.LocalPlayer
+local Camera = Workspace.CurrentCamera
+
+-- EXCLUDE LISTE (Speichert, welche Spieler IGNORIERT werden sollen)
+local ExcludedPlayers = {}
+
+-- UI ERSTELLUNG
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "NexusCombatUI"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+
+-- Hauptfenster
+local MainFrame = Instance.new("Frame")
+MainFrame.Name = "MainFrame"
+MainFrame.Size = UDim2.new(0, 320, 0, 520)
+MainFrame.Position = UDim2.new(0.5, -160, 0.5, -260)
+MainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+MainFrame.BorderSizePixel = 0
+MainFrame.ClipsDescendants = true
+MainFrame.Parent = ScreenGui
+
+local UICorner = Instance.new("UICorner")
+UICorner.CornerRadius = UDim.new(0, 8)
+UICorner.Parent = MainFrame
+
+local UIStroke = Instance.new("UIStroke")
+UIStroke.Color = Color3.fromRGB(45, 45, 45)
+UIStroke.Thickness = 1
+UIStroke.Parent = MainFrame
+
+-- Titelzeile
+local TitleBar = Instance.new("Frame")
+TitleBar.Name = "TitleBar"
+TitleBar.Size = UDim2.new(1, 0, 0, 45)
+TitleBar.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+TitleBar.BorderSizePixel = 0
+TitleBar.Parent = MainFrame
+
+local TitleLabel = Instance.new("TextLabel")
+TitleLabel.Size = UDim2.new(1, -20, 1, 0)
+TitleLabel.Position = UDim2.new(0, 15, 0, 0)
+TitleLabel.BackgroundTransparency = 1
+TitleLabel.Text = "pig biggy pro script"
+TitleLabel.TextColor3 = Color3.fromRGB(240, 240, 240)
+TitleLabel.Font = Enum.Font.GothamBold
+TitleLabel.TextSize = 14
+TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
+TitleLabel.Parent = TitleBar
+
+-- Scroll-Inhalt
+local Container = Instance.new("ScrollingFrame")
+Container.Size = UDim2.new(1, -20, 1, -60)
+Container.Position = UDim2.new(0, 10, 0, 55)
+Container.BackgroundTransparency = 1
+Container.BorderSizePixel = 0
+Container.ScrollBarThickness = 2
+Container.ScrollBarImageColor3 = Color3.fromRGB(60, 60, 60)
+Container.CanvasSize = UDim2.new(0, 0, 0, 0)
+Container.Parent = MainFrame
+
+local UIListLayout = Instance.new("UIListLayout")
+UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+UIListLayout.Padding = UDim.new(0, 8)
+UIListLayout.Parent = Container
+
+-- Visueller FOV-Kreis
+local FOVCircle = Drawing.new("Circle")
+FOVCircle.Color = Color3.fromRGB(255, 255, 255)
+FOVCircle.Thickness = 1
+FOVCircle.NumSides = 64
+FOVCircle.Filled = false
+FOVCircle.Visible = false
+
+-- UI ERSTELLUNGS-HELFER
+local function createToggle(name, labelText, default)
+    local Row = Instance.new("Frame")
+    Row.Size = UDim2.new(1, 0, 0, 40)
+    Row.BackgroundColor3 = Color3.fromRGB(32, 32, 32)
+    
+    local RowCorner = Instance.new("UICorner")
+    RowCorner.CornerRadius = UDim.new(0, 6)
+    RowCorner.Parent = Row
+
+    local Label = Instance.new("TextLabel")
+    Label.Size = UDim2.new(0.7, 0, 1, 0)
+    Label.Position = UDim2.new(0, 12, 0, 0)
+    Label.BackgroundTransparency = 1
+    Label.Text = labelText
+    Label.TextColor3 = Color3.fromRGB(200, 200, 200)
+    Label.Font = Enum.Font.Gotham
+    Label.TextSize = 13
+    Label.TextXAlignment = Enum.TextXAlignment.Left
+    Label.Parent = Row
+
+    local Button = Instance.new("TextButton")
+    Button.Size = UDim2.new(0, 45, 0, 22)
+    Button.Position = UDim2.new(1, -57, 0.5, -11)
+    Button.BackgroundColor3 = default and Color3.fromRGB(0, 165, 115) or Color3.fromRGB(50, 50, 50)
+    Button.Text = ""
+    Button.Parent = Row
+    
+    local BtnCorner = Instance.new("UICorner")
+    BtnCorner.CornerRadius = UDim.new(1, 0)
+    BtnCorner.Parent = Button
+
+    local Circle = Instance.new("Frame")
+    Circle.Size = UDim2.new(0, 16, 0, 16)
+    Circle.Position = default and UDim2.new(1, -19, 0.5, -8) or UDim2.new(0, 3, 0.5, -8)
+    Circle.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    Circle.Parent = Button
+    
+    local CircleCorner = Instance.new("UICorner")
+    CircleCorner.CornerRadius = UDim.new(1, 0)
+    CircleCorner.Parent = Circle
+
+    local state = default
+    Button.MouseButton1Click:Connect(function()
+        state = not state
+        local targetColor = state and Color3.fromRGB(0, 165, 115) or Color3.fromRGB(50, 50, 50)
+        local targetPos = state and UDim2.new(1, -19, 0.5, -8) or UDim2.new(0, 3, 0.5, -8)
+        TweenService:Create(Button, TweenInfo.new(0.2), {BackgroundColor3 = targetColor}):Play()
+        TweenService:Create(Circle, TweenInfo.new(0.2), {Position = targetPos}):Play()
+    end)
+    
+    Row.Parent = Container
+    return function() return state end
+end
+
+local function createSlider(name, labelText, min, max, default)
+    local Row = Instance.new("Frame")
+    Row.Size = UDim2.new(1, 0, 0, 55)
+    Row.BackgroundColor3 = Color3.fromRGB(32, 32, 32)
+    
+    local RowCorner = Instance.new("UICorner")
+    RowCorner.CornerRadius = UDim.new(0, 6)
+    RowCorner.Parent = Row
+
+    local Label = Instance.new("TextLabel")
+    Label.Size = UDim2.new(0.7, 0, 0, 25)
+    Label.Position = UDim2.new(0, 12, 0, 4)
+    Label.BackgroundTransparency = 1
+    Label.Text = labelText
+    Label.TextColor3 = Color3.fromRGB(200, 200, 200)
+    Label.Font = Enum.Font.Gotham
+    Label.TextSize = 13
+    Label.TextXAlignment = Enum.TextXAlignment.Left
+    Label.Parent = Row
+
+    local ValueLabel = Instance.new("TextLabel")
+    ValueLabel.Size = UDim2.new(0.3, 0, 0, 25)
+    ValueLabel.Position = UDim2.new(1, -102, 0, 4)
+    ValueLabel.BackgroundTransparency = 1
+    ValueLabel.Text = tostring(default)
+    ValueLabel.TextColor3 = Color3.fromRGB(140, 140, 140)
+    ValueLabel.Font = Enum.Font.Gotham
+    ValueLabel.TextSize = 12
+    ValueLabel.TextXAlignment = Enum.TextXAlignment.Right
+    ValueLabel.Parent = Row
+
+    local SliderBar = Instance.new("TextButton")
+    SliderBar.Size = UDim2.new(1, -24, 0, 6)
+    SliderBar.Position = UDim2.new(0, 12, 0, 38)
+    SliderBar.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    SliderBar.Text = ""
+    SliderBar.Parent = Row
+    
+    local BarCorner = Instance.new("UICorner")
+    BarCorner.CornerRadius = UDim.new(1, 0)
+    BarCorner.Parent = SliderBar
+
+    local Fill = Instance.new("Frame")
+    local startPerc = (default - min) / (max - min)
+    Fill.Size = UDim2.new(startPerc, 0, 1, 0)
+    Fill.BackgroundColor3 = Color3.fromRGB(0, 120, 255)
+    Fill.Parent = SliderBar
+    
+    local FillCorner = Instance.new("UICorner")
+    FillCorner.CornerRadius = UDim.new(1, 0)
+    FillCorner.Parent = Fill
+
+    local currentValue = default
+    local function updateSlider(input)
+        local percentage = math.clamp((input.Position.X - SliderBar.AbsolutePosition.X) / SliderBar.AbsoluteSize.X, 0, 1)
+        currentValue = math.floor(min + (percentage * (max - min)))
+        Fill.Size = UDim2.new((currentValue - min) / (max - min), 0, 1, 0)
+        ValueLabel.Text = tostring(currentValue)
+    end
+
+    local dragging = false
+    SliderBar.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then dragging = true updateSlider(input) end
+    end)
+    UserInputService.InputChanged:Connect(function(input)
+        if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then updateSlider(input) end
+    end)
+    UserInputService.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end
+    end)
+    
+    Row.Parent = Container
+    return function() return currentValue end
+end
+
+local function createKeybind(name, labelText, defaultKey)
+    local Row = Instance.new("Frame")
+    Row.Size = UDim2.new(1, 0, 0, 40)
+    Row.BackgroundColor3 = Color3.fromRGB(32, 32, 32)
+    
+    local RowCorner = Instance.new("UICorner")
+    RowCorner.CornerRadius = UDim.new(0, 6)
+    RowCorner.Parent = Row
+
+    local Label = Instance.new("TextLabel")
+    Label.Size = UDim2.new(0.6, 0, 1, 0)
+    Label.Position = UDim2.new(0, 12, 0, 0)
+    Label.BackgroundTransparency = 1
+    Label.Text = labelText
+    Label.TextColor3 = Color3.fromRGB(200, 200, 200)
+    Label.Font = Enum.Font.Gotham
+    Label.TextSize = 13
+    Label.TextXAlignment = Enum.TextXAlignment.Left
+    Label.Parent = Row
+
+    local BindBtn = Instance.new("TextButton")
+    BindBtn.Size = UDim2.new(0, 70, 0, 24)
+    BindBtn.Position = UDim2.new(1, -82, 0.5, -12)
+    BindBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+    BindBtn.Text = defaultKey.Name
+    BindBtn.TextColor3 = Color3.fromRGB(230, 230, 230)
+    BindBtn.Font = Enum.Font.GothamMedium
+    BindBtn.TextSize = 12
+    BindBtn.Parent = Row
+    
+    local BtnCorner = Instance.new("UICorner")
+    BtnCorner.CornerRadius = UDim.new(0, 4)
+    BtnCorner.Parent = BindBtn
+
+    local currentKey = defaultKey
+    local listening = false
+
+    BindBtn.MouseButton1Click:Connect(function()
+        listening = true
+        BindBtn.Text = "..."
+    end)
+
+    UserInputService.InputBegan:Connect(function(input)
+        if listening and input.UserInputType == Enum.UserInputType.Keyboard then
+            currentKey = input.KeyCode
+            BindBtn.Text = currentKey.Name
+            listening = false
+        end
+    end)
+    
+    Row.Parent = Container
+    return function() return currentKey end
+end
+
+-- GENERIERE ELEMENTE
+local GetMasterToggle   = createToggle("MasterToggle", "Aim Aktivieren", true)
+local GetEspToggle      = createToggle("EspToggle", "ESP Boxen Aktivieren", true)
+local GetEspScale       = createSlider("EspScale", "ESP Boxen-Größe (%)", 50, 200, 50) -- Standardwert auf 50 geändert
+local GetFovDetection   = createSlider("FOV", "FOV Radius", 30, 300, 120)
+local GetSmoothness     = createSlider("Smoothness", "Smoothness (Höher = Langsamer)", 1, 30, 5)
+local GetTargetLock     = createToggle("TargetLock", "Target Lock-On", true)
+local GetWallCheck      = createToggle("WallCheck", "Wall Check (Sichtprüfung)", true)
+-- Autom. Ziel wechseln Schalter wurde hier entfernt
+local GetAimKeybind     = createKeybind("AimKey", "Aim Taste halten", Enum.KeyCode.Q)
+local GetMenuKeybind    = createKeybind("MenuKey", "Menü Taste", Enum.KeyCode.RightShift)
+
+-- SPIELER AUSSCHLUSS-LISTE UI ELEMENT
+local ExcludeHeader = Instance.new("TextLabel")
+ExcludeHeader.Size = UDim2.new(1, 0, 0, 25)
+ExcludeHeader.BackgroundTransparency = 1
+ExcludeHeader.Text = "--- SPIELER AUSSCHLIESSEN (Aimbot Targets) ---"
+ExcludeHeader.TextColor3 = Color3.fromRGB(150, 150, 150)
+ExcludeHeader.Font = Enum.Font.GothamBold
+ExcludeHeader.TextSize = 11
+ExcludeHeader.Parent = Container
+
+local ListContainer = Instance.new("Frame")
+ListContainer.Size = UDim2.new(1, 0, 0, 120)
+ListContainer.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+ListContainer.Parent = Container
+
+local ListCorner = Instance.new("UICorner")
+ListCorner.CornerRadius = UDim.new(0, 6)
+ListCorner.Parent = ListContainer
+
+local ListScroll = Instance.new("ScrollingFrame")
+ListScroll.Size = UDim2.new(1, -10, 1, -10)
+ListScroll.Position = UDim2.new(0, 5, 0, 5)
+ListScroll.BackgroundTransparency = 1
+ListScroll.BorderSizePixel = 0
+ListScroll.ScrollBarThickness = 2
+ListScroll.ScrollBarImageColor3 = Color3.fromRGB(50, 50, 50)
+ListScroll.Parent = ListContainer
+
+local ListLayout = Instance.new("UIListLayout")
+ListLayout.SortOrder = Enum.SortOrder.Name
+ListLayout.Padding = UDim.new(0, 4)
+ListLayout.Parent = ListScroll
+
+local function updateExcludeList()
+    for _, child in ipairs(ListScroll:GetChildren()) do
+        if child:IsA("TextButton") then child:Destroy() end
+    end
+
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p ~= LocalPlayer then
+            local pBtn = Instance.new("TextButton")
+            pBtn.Name = p.Name
+            pBtn.Size = UDim2.new(1, 0, 0, 24)
+            pBtn.Font = Enum.Font.Gotham
+            pBtn.TextSize = 12
+            pBtn.Text = p.DisplayName .. " (@" .. p.Name .. ")"
+            
+            local function updateBtnVisual()
+                if ExcludedPlayers[p.Name] then
+                    pBtn.BackgroundColor3 = Color3.fromRGB(150, 35, 35)
+                    pBtn.TextColor3 = Color3.fromRGB(255, 200, 200)
+                else
+                    pBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+                    pBtn.TextColor3 = Color3.fromRGB(220, 220, 220)
+                end
+            end
+            
+            updateBtnVisual()
+            
+            local bCorner = Instance.new("UICorner")
+            bCorner.CornerRadius = UDim.new(0, 4)
+            bCorner.Parent = pBtn
+            
+            pBtn.MouseButton1Click:Connect(function()
+                ExcludedPlayers[p.Name] = not ExcludedPlayers[p.Name]
+                updateBtnVisual()
+            end)
+            
+            pBtn.Parent = ListScroll
+        end
+    end
+    ListScroll.CanvasSize = UDim2.new(0, 0, 0, ListLayout.AbsoluteContentSize.Y)
+    Container.CanvasSize = UDim2.new(0, 0, 0, UIListLayout.AbsoluteContentSize.Y + 15)
+end
+
+Players.PlayerAdded:Connect(function(p) task.wait(0.5) updateExcludeList() end)
+Players.PlayerRemoving:Connect(function(p) ExcludedPlayers[p.Name] = nil updateExcludeList() end)
+updateExcludeList()
+
+-- Canvas-Größe anpassen
+Container.CanvasSize = UDim2.new(0, 0, 0, UIListLayout.AbsoluteContentSize.Y + 15)
+
+-- MENÜ SCHLIESSEN / ÖFFNEN
+local MenuVisible = true
+UserInputService.InputBegan:Connect(function(input, processed)
+    if not processed and input.KeyCode == GetMenuKeybind() then
+        MenuVisible = not MenuVisible
+        MainFrame.Visible = MenuVisible
+    end
+end)
+
+-- Dragging (Menü verschieben)
+local dragging, dragStart, startPos
+TitleBar.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragging = true dragStart = input.Position startPos = MainFrame.Position
+    end
+end)
+UserInputService.InputChanged:Connect(function(input)
+    if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+        local delta = input.Position - dragStart
+        MainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    end
+end)
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end
+end)
+
+
+-- ====================================================================
+-- ESP LOGIK ENGINE (Quad-Boxen mit Größen-Slider)
+-- ====================================================================
+
+local esps = {}
+
+local function createEsp(player)
+    if esps[player] then return end
+
+    local box = Drawing.new("Square")
+    box.Color = Color3.fromRGB(255, 0, 85)
+    box.Thickness = 1.5
+    box.Filled = false
+    box.Visible = false
+
+    esps[player] = box
+end
+
+local function removeEsp(player)
+    if esps[player] then
+        esps[player]:Remove()
+        esps[player] = nil
+    end
+end
+
+Players.PlayerAdded:Connect(createEsp)
+Players.PlayerRemoving:Connect(removeEsp)
+for _, p in ipairs(Players:GetPlayers()) do
+    if p ~= LocalPlayer then createEsp(p) end
+end
+
+-- ====================================================================
+-- AIMBOT LOGIK ENGINE
+-- ====================================================================
+
+local CurrentTarget = nil
+local IsAiming = false
+
+-- Wallcheck Funktion
+local function isVisible(targetPart)
+    if not GetWallCheck() then return true end
+    local character = LocalPlayer.Character
+    if not character then return false end
+    
+    local raycastParams = RaycastParams.new()
+    raycastParams.FilterType = Enum.RaycastFilterType.Exclude
+    raycastParams.FilterDescendantsInstances = {character, targetPart.Parent}
+    raycastParams.IgnoreWater = true
+    
+    local origin = Camera.CFrame.Position
+    local direction = targetPart.Position - origin
+    local raycastResult = Workspace:Raycast(origin, direction, raycastParams)
+    
+    return raycastResult == nil
+end
+
+-- Findet das beste Ziel am nächsten zum Mauszeiger
+local function getClosestPlayerToMouse()
+    local closestPlayer = nil
+    local shortestDistance = GetFovDetection()
+    local mousePos = UserInputService:GetMouseLocation()
+
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and not ExcludedPlayers[player.Name] and player.Character then
+            local rootPart = player.Character:FindFirstChild("HumanoidRootPart")
+            local humanoid = player.Character:FindFirstChild("Humanoid")
+            
+            if rootPart and humanoid and humanoid.Health > 0 then
+                local screenPos, onScreen = Camera:WorldToViewportPoint(rootPart.Position)
+                
+                if onScreen then
+                    local distanceToMouse = (Vector2.new(screenPos.X, screenPos.Y) - mousePos).Magnitude
+                    if distanceToMouse < shortestDistance then
+                        if isVisible(rootPart) then
+                            shortestDistance = distanceToMouse
+                            closestPlayer = player
+                        end
+                    end
+                end
+            end
+        end
+    end
+    return closestPlayer
+end
+
+-- Keybind Überwachung für Aimlock
+UserInputService.InputBegan:Connect(function(input, processed)
+    if not processed and input.KeyCode == GetAimKeybind() then
+        IsAiming = true
+    end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+    if input.KeyCode == GetAimKeybind() then
+        IsAiming = false
+        if not GetTargetLock() then
+            CurrentTarget = nil
+        end
+    end
+end)
+
+-- Main Loop (Frame-Update für Aimbot & ESP)
+RunService.RenderStepped:Connect(function()
+    -- FOV Update
+    local mousePos = UserInputService:GetMouseLocation()
+    FOVCircle.Position = mousePos
+    FOVCircle.Radius = GetFovDetection()
+    FOVCircle.Visible = GetMasterToggle() and MenuVisible
+
+    -- ESP Rendering Loop
+    for player, box in pairs(esps) do
+        local char = player.Character
+        local root = char and char:FindFirstChild("HumanoidRootPart")
+        local hum = char and char:FindFirstChild("Humanoid")
+
+        if GetEspToggle() and root and hum and hum.Health > 0 then
+            local rootPos, onScreen = Camera:WorldToViewportPoint(root.Position)
+
+            if onScreen then
+                -- Berechne dynamische Box-Größe basierend auf Distanz & Multipliziert mit dem Slider-Wert
+                local scaleModifier = GetEspScale() / 100
+                local scaleFactor = 1 / (rootPos.Z * math.tan(math.rad(Camera.FieldOfView / 2))) * 1000
+                local width = 4 * scaleFactor * scaleModifier
+                local height = 6 * scaleFactor * scaleModifier
+
+                box.Size = Vector2.new(width, height)
+                box.Position = Vector2.new(rootPos.X - width / 2, rootPos.Y - height / 2)
+                box.Visible = true
+            else
+                box.Visible = false
+            end
+        else
+            box.Visible = false
+        end
+    end
+
+    if not GetMasterToggle() then 
+        CurrentTarget = nil 
+        return 
+    end
+
+    -- Ziel-Validierung
+    if CurrentTarget then
+        local char = CurrentTarget.Character
+        local hum = char and char:FindFirstChild("Humanoid")
+        local root = char and char:FindFirstChild("HumanoidRootPart")
+        if not char or not hum or not root or hum.Health <= 0 or ExcludedPlayers[CurrentTarget.Name] or (GetWallCheck() and not isVisible(root)) then
+            -- Automatischer Zielwechsel wurde entfernt, Ziel wird direkt auf nil gesetzt
+            CurrentTarget = nil
+        end
+    end
+
+    -- Aimbot Ausführung
+    if IsAiming then
+        if GetTargetLock() then
+            if not CurrentTarget then
+                CurrentTarget = getClosestPlayerToMouse()
+            end
+        else
+            CurrentTarget = getClosestPlayerToMouse()
+        end
+
+        if CurrentTarget and CurrentTarget.Character then
+            local head = CurrentTarget.Character:FindFirstChild("Head")
+            if head then
+                local targetCFrame = CFrame.new(Camera.CFrame.Position, head.Position)
+                local smoothAmount = math.max(1, GetSmoothness())
+                Camera.CFrame = Camera.CFrame:Lerp(targetCFrame, 1 / smoothAmount)
+            end
+        end
+    else
+        if not GetTargetLock() then
+            CurrentTarget = nil
+        end
+    end
+end)
