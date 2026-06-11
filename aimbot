@@ -21,8 +21,8 @@ ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
 -- Hauptfenster
 local MainFrame = Instance.new("Frame")
 MainFrame.Name = "MainFrame"
-MainFrame.Size = UDim2.new(0, 320, 0, 520)
-MainFrame.Position = UDim2.new(0.5, -160, 0.5, -260)
+MainFrame.Size = UDim2.new(0, 320, 0, 550) -- Höhe leicht erhöht für das Suchfeld
+MainFrame.Position = UDim2.new(0.5, -160, 0.5, -275)
 MainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
 MainFrame.BorderSizePixel = 0
 MainFrame.ClipsDescendants = true
@@ -267,13 +267,12 @@ end
 -- GENERIERE ELEMENTE
 local GetMasterToggle   = createToggle("MasterToggle", "Aim Aktivieren", true)
 local GetEspToggle      = createToggle("EspToggle", "ESP Boxen Aktivieren", true)
-local GetEspScale       = createSlider("EspScale", "ESP Boxen-Größe (%)", 50, 200, 50) -- Standardwert auf 50 geändert
+local GetEspScale       = createSlider("EspScale", "ESP Boxen-Größe (%)", 50, 200, 50)
 local GetFovDetection   = createSlider("FOV", "FOV Radius", 30, 300, 120)
 local GetSmoothness     = createSlider("Smoothness", "Smoothness (Höher = Langsamer)", 1, 30, 5)
 local GetTargetLock     = createToggle("TargetLock", "Target Lock-On", true)
 local GetWallCheck      = createToggle("WallCheck", "Wall Check (Sichtprüfung)", true)
--- Autom. Ziel wechseln Schalter wurde hier entfernt
-local GetAimKeybind     = createKeybind("AimKey", "Aim Taste halten", Enum.KeyCode.Q)
+local GetAimKeybind      = createKeybind("AimKey", "Aim Taste halten", Enum.KeyCode.Q)
 local GetMenuKeybind    = createKeybind("MenuKey", "Menü Taste", Enum.KeyCode.RightShift)
 
 -- SPIELER AUSSCHLUSS-LISTE UI ELEMENT
@@ -285,6 +284,23 @@ ExcludeHeader.TextColor3 = Color3.fromRGB(150, 150, 150)
 ExcludeHeader.Font = Enum.Font.GothamBold
 ExcludeHeader.TextSize = 11
 ExcludeHeader.Parent = Container
+
+-- NEU: Suchfeld für Spieler
+local SearchBox = Instance.new("TextBox")
+SearchBox.Name = "SearchBox"
+SearchBox.Size = UDim2.new(1, 0, 0, 28)
+SearchBox.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+SearchBox.Text = ""
+SearchBox.PlaceholderText = "Spieler suchen..."
+SearchBox.PlaceholderColor3 = Color3.fromRGB(100, 100, 100)
+SearchBox.TextColor3 = Color3.fromRGB(230, 230, 230)
+SearchBox.Font = Enum.Font.Gotham
+SearchBox.TextSize = 12
+SearchBox.Parent = Container
+
+local SearchCorner = Instance.new("UICorner")
+SearchCorner.CornerRadius = UDim.new(0, 4)
+SearchCorner.Parent = SearchBox
 
 local ListContainer = Instance.new("Frame")
 ListContainer.Size = UDim2.new(1, 0, 0, 120)
@@ -314,42 +330,53 @@ local function updateExcludeList()
         if child:IsA("TextButton") then child:Destroy() end
     end
 
+    local searchFilter = string.lower(SearchBox.Text)
+
     for _, p in ipairs(Players:GetPlayers()) do
         if p ~= LocalPlayer then
-            local pBtn = Instance.new("TextButton")
-            pBtn.Name = p.Name
-            pBtn.Size = UDim2.new(1, 0, 0, 24)
-            pBtn.Font = Enum.Font.Gotham
-            pBtn.TextSize = 12
-            pBtn.Text = p.DisplayName .. " (@" .. p.Name .. ")"
+            local pNameLower = string.lower(p.Name)
+            local pDisplayNameLower = string.lower(p.DisplayName)
             
-            local function updateBtnVisual()
-                if ExcludedPlayers[p.Name] then
-                    pBtn.BackgroundColor3 = Color3.fromRGB(150, 35, 35)
-                    pBtn.TextColor3 = Color3.fromRGB(255, 200, 200)
-                else
-                    pBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
-                    pBtn.TextColor3 = Color3.fromRGB(220, 220, 220)
+            -- Filtert nach Suchbegriff (wenn leer, wird alles angezeigt)
+            if string.find(pNameLower, searchFilter) or string.find(pDisplayNameLower, searchFilter) then
+                local pBtn = Instance.new("TextButton")
+                pBtn.Name = p.Name
+                pBtn.Size = UDim2.new(1, 0, 0, 24)
+                pBtn.Font = Enum.Font.Gotham
+                pBtn.TextSize = 12
+                pBtn.Text = p.DisplayName .. " (@" .. p.Name .. ")"
+                
+                local function updateBtnVisual()
+                    if ExcludedPlayers[p.Name] then
+                        pBtn.BackgroundColor3 = Color3.fromRGB(150, 35, 35)
+                        pBtn.TextColor3 = Color3.fromRGB(255, 200, 200)
+                    else
+                        pBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+                        pBtn.TextColor3 = Color3.fromRGB(220, 220, 220)
+                    end
                 end
-            end
-            
-            updateBtnVisual()
-            
-            local bCorner = Instance.new("UICorner")
-            bCorner.CornerRadius = UDim.new(0, 4)
-            bCorner.Parent = pBtn
-            
-            pBtn.MouseButton1Click:Connect(function()
-                ExcludedPlayers[p.Name] = not ExcludedPlayers[p.Name]
+                
                 updateBtnVisual()
-            end)
-            
-            pBtn.Parent = ListScroll
+                
+                local bCorner = Instance.new("UICorner")
+                bCorner.CornerRadius = UDim.new(0, 4)
+                bCorner.Parent = pBtn
+                
+                pBtn.MouseButton1Click:Connect(function()
+                    ExcludedPlayers[p.Name] = not ExcludedPlayers[p.Name]
+                    updateBtnVisual()
+                end)
+                
+                pBtn.Parent = ListScroll
+            end
         end
     end
     ListScroll.CanvasSize = UDim2.new(0, 0, 0, ListLayout.AbsoluteContentSize.Y)
     Container.CanvasSize = UDim2.new(0, 0, 0, UIListLayout.AbsoluteContentSize.Y + 15)
 end
+
+-- Aktualisiert die Liste live, wenn man ins Suchfeld tippt
+SearchBox:GetPropertyChangedSignal("Text"):Connect(updateExcludeList)
 
 Players.PlayerAdded:Connect(function(p) task.wait(0.5) updateExcludeList() end)
 Players.PlayerRemoving:Connect(function(p) ExcludedPlayers[p.Name] = nil updateExcludeList() end)
@@ -504,7 +531,6 @@ RunService.RenderStepped:Connect(function()
             local rootPos, onScreen = Camera:WorldToViewportPoint(root.Position)
 
             if onScreen then
-                -- Berechne dynamische Box-Größe basierend auf Distanz & Multipliziert mit dem Slider-Wert
                 local scaleModifier = GetEspScale() / 100
                 local scaleFactor = 1 / (rootPos.Z * math.tan(math.rad(Camera.FieldOfView / 2))) * 1000
                 local width = 4 * scaleFactor * scaleModifier
@@ -532,7 +558,6 @@ RunService.RenderStepped:Connect(function()
         local hum = char and char:FindFirstChild("Humanoid")
         local root = char and char:FindFirstChild("HumanoidRootPart")
         if not char or not hum or not root or hum.Health <= 0 or ExcludedPlayers[CurrentTarget.Name] or (GetWallCheck() and not isVisible(root)) then
-            -- Automatischer Zielwechsel wurde entfernt, Ziel wird direkt auf nil gesetzt
             CurrentTarget = nil
         end
     end
